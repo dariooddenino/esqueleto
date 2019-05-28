@@ -31,6 +31,7 @@ module Database.Esqueleto.Internal.Sql
   , insertSelect
   , insertSelectCount
     -- * The guts
+  , unsafeSqlCastAs
   , unsafeSqlCase
   , unsafeSqlBinOp
   , unsafeSqlBinOpComposite
@@ -92,6 +93,7 @@ data CompositeKeyError =
   | FoldHelpError
   | SqlCaseError
   | SqlBinOpError
+  | SqlCastAsError
   | MakeOnClauseError
   | MakeExcError
   | MakeSetError
@@ -604,6 +606,14 @@ countHelper _ _ (ECompositeKey _) = countRows -- Assumes no NULLs on a PK
 
 ----------------------------------------------------------------------
 
+-- | (Internal) An explicit SQL type cast using CAST(value as type).
+-- See 'unsafeSqlBinOp' for warnings.
+unsafeSqlCastAs :: T.Text -> SqlExpr (Value a) -> SqlExpr (Value b)
+unsafeSqlCastAs t (ERaw p f) =
+  ERaw Never $ \info ->
+    let (b, v) = f info
+    in ("CAST" <> parens ( parensM p b <> " AS " <> TLB.fromText t), v )
+unsafeSqlCastAs _ (ECompositeKey _) = throw (CompositeKeyErr SqlCastAsError)
 
 -- | (Internal) Create a case statement.
 --
